@@ -39,51 +39,55 @@ $(window).on('action:ajaxify.end', function () {
 	});
 });
 
+// Profile V4 membership card (2026-10-25): a card per tier (Lite grey, Premium purple, VIP orange),
+// floated to the right of the bio, with the plan, end date and days left on the card itself.
 function buildCardHTML(data) {
 	var periodLabels = { monthly: 'Aylık', yearly: 'Yıllık' };
 	var periodLabel = periodLabels[data.period] || data.period || '';
-	var planName = data.planName || data.plan || '';
+	var plan = String(data.plan || '').toLowerCase();
+	var tier = { lite: 'LITE', premium: 'PREMIUM', vip: 'VIP' }[plan] || String(data.planName || plan).toUpperCase();
 	var daysRemaining = data.remainingDays != null ? data.remainingDays : computeDaysRemaining(data.expiresAt);
 	var expiresFormatted = data.expiresAt ? formatDateTR(data.expiresAt) : '';
 	var cancelRequested = !!data.cancelRequestedAt || !data.autoRenew;
 	var showCancelButton = !!data.autoRenew && !data.cancelRequestedAt;
+	var u = ajaxify.data || {};
+	var name = u.fullname || u.displayname || u.username || '';
+	var payUrl = config.relative_path + '/pay/checkout?uid=' + encodeURIComponent(config.uid);
+	var logoEl = document.querySelector('[component="brand/logo"]');
+	var logo = logoEl && logoEl.getAttribute('src');
+	var up = { lite: ['main', "Premium'a geç", payUrl], premium: ['vip', "VIP'ye geç · daha fazla AI", config.relative_path + '/pay/checkout/upgrade?uid=' + encodeURIComponent(config.uid) + '&plan=vip'] }[plan];
 
 	var h = '';
-	h += '<div class="ieu-cs-card ieu-cs-mb-3" id="ieu-subscription-card"';
+	h += '<div class="ieu-cs-v4 ieu-cs-mb-3" id="ieu-subscription-card"';
 	h += ' data-days-remaining="' + daysRemaining + '"';
 	h += ' data-auto-renew="' + !!data.autoRenew + '"';
 	h += ' data-expires-formatted="' + escapeHtml(expiresFormatted) + '">';
-	h += '<div class="ieu-cs-card-header">Abonelik Durumu</div>';
-	h += '<div class="ieu-cs-card-body">';
-
-	h += '<div class="ieu-cs-mb-2"><span class="ieu-cs-text-muted">Plan:</span> <strong>' + escapeHtml(planName) + '</strong>';
-	if (periodLabel) {
-		h += ' <span class="ieu-cs-text-muted">(' + escapeHtml(periodLabel) + ')</span>';
-	}
+	h += '<div class="ieu-cs-idcard ' + escapeHtml(plan) + '">';
+	h += '<div class="top">' + (logo ? '<img src="' + escapeHtml(logo) + '" alt="">' : '') + 'IEU Forum</div>';
+	h += '<div class="tier">' + escapeHtml(tier) + '</div>';
+	h += '<div class="chip"></div>';
+	h += '<div class="who">' + escapeHtml(name) + '</div>';
+	h += '<div class="dept">@' + escapeHtml(u.username || '') + '</div>';
+	h += '<div class="meta"><span>Plan<b>' + escapeHtml(periodLabel || '-') + '</b></span>';
+	h += '<span>Bitiş<b>' + escapeHtml(expiresFormatted || '-') + '</b></span>';
+	h += '<span>Kalan<b class="' + (daysRemaining <= 3 ? 'ieu-cs-text-danger-soft' : '') + '">' + daysRemaining + ' gün</b></span></div>';
 	h += '</div>';
 
-	if (expiresFormatted) {
-		h += '<div class="ieu-cs-mb-2"><span class="ieu-cs-text-muted">Bitiş Tarihi:</span> <strong>' + escapeHtml(expiresFormatted) + '</strong></div>';
-		h += '<div class="ieu-cs-mb-2"><span class="ieu-cs-text-muted">Kalan Süre:</span> <strong id="ieu-days-value" class="' + (daysRemaining <= 3 ? 'ieu-cs-text-danger' : '') + '">' + daysRemaining + ' gün</strong></div>';
-	}
+	h += '<div class="ieu-cs-actions"><a href="' + payUrl + '">Planımı yönet</a>';
+	if (up) h += '<a class="' + up[0] + '" href="' + up[2] + '">' + up[1] + '</a>';
+	h += '</div>';
 
-	if (daysRemaining <= 3) {
-		h += '<div class="ieu-cs-alert ieu-cs-alert-warning ieu-cs-mb-2">Aboneliğiniz ' + daysRemaining + ' gün sonra sona erecek!</div>';
+	if (daysRemaining <= 3 && !cancelRequested) {
+		h += '<div class="ieu-cs-alert ieu-cs-alert-warning">Aboneliğin ' + daysRemaining + ' gün sonra yenilenecek.</div>';
 	}
-
 	if (cancelRequested) {
-		h += '<div class="ieu-cs-alert ieu-cs-alert-info ieu-cs-mb-2">Otomatik yenileme iptal edildi. Aboneliğiniz ' + daysRemaining + ' gün sonra sona erecektir.</div>';
+		h += '<div class="ieu-cs-alert ieu-cs-alert-info">Otomatik yenileme kapalı. Üyeliğin ' + escapeHtml(expiresFormatted) + ' tarihine kadar açık.</div>';
 	}
-
 	if (showCancelButton) {
-		h += '<div id="ieu-cancel-action" class="ieu-cs-mt-3">';
-		h += '<button id="ieu-cancel-btn" class="ieu-cs-btn ieu-cs-btn-outline-danger">Aboneliğimi İptal Et</button>';
-		h += '</div>';
+		h += '<div id="ieu-cancel-action"><button id="ieu-cancel-btn" type="button" class="ieu-cs-v4-cancel">Aboneliğimi iptal et</button></div>';
 	}
-
-	h += '<div id="ieu-cancel-result" class="ieu-cs-hidden ieu-cs-mt-3"></div>';
-	h += '</div></div>';
-
+	h += '<div id="ieu-cancel-result" class="ieu-cs-hidden"></div>';
+	h += '</div>';
 	return h;
 }
 
