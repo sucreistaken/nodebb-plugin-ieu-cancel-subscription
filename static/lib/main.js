@@ -2,40 +2,65 @@
 
 console.log('[ieu-cancel-sub] main.js loaded');
 
+// The card is drawn from the last known status right away (no layout jump while the request runs),
+// then refreshed in place when the payment service answers. Cache is per user, 7 days at most.
+var IEU_CS_CACHE_DAYS = 7;
+function ieuCsCacheKey() { return 'ieu-cs:' + config.uid; }
+function ieuCsReadCache() {
+	try {
+		var c = JSON.parse(localStorage.getItem(ieuCsCacheKey()) || 'null');
+		if (c && c.data && c.at > Date.now() - IEU_CS_CACHE_DAYS * 864e5) {
+			var d = $.extend({}, c.data);
+			delete d.remainingDays; // recomputed from expiresAt, the cached number is stale
+			return d;
+		}
+	} catch (e) { /* storage blocked: no instant card */ }
+	return null;
+}
+function ieuCsWriteCache(data) {
+	try {
+		if (data && data.active) localStorage.setItem(ieuCsCacheKey(), JSON.stringify({ at: Date.now(), data: data }));
+		else localStorage.removeItem(ieuCsCacheKey());
+	} catch (e) { /* ignore */ }
+}
+function ieuCsRender(data, fromCache) {
+	var old = document.getElementById('ieu-subscription-card');
+	var html = buildCardHTML(data);
+	if (old) {
+		$(old).replaceWith($(html).addClass('ieu-cs-still'));
+	} else {
+		injectCard(html);
+		if (fromCache) $('#ieu-subscription-card').addClass('ieu-cs-still');
+	}
+	bindCancelButton(data);
+}
+function ieuCsRemove() {
+	$('#ieu-subscription-card').remove();
+	$('.account-content').removeClass('ieu-cs-has-card');
+}
+
 $(window).on('action:ajaxify.end', function () {
 	var url = ajaxify.data && ajaxify.data.url;
 	if (!url || !url.startsWith('/user/')) return;
 	if (!config.loggedIn || !config.uid) return;
 	if (!ajaxify.data.isSelf) return;
+	if (!document.querySelector('[component="aboutme"], [component="account/profile"], .account-content')) return;
 
-	// Zaten eklenmişse tekrar ekleme
-	if (document.getElementById('ieu-subscription-card')) return;
-
-	console.log('[ieu-cancel-sub] Profil sayfası, abonelik durumu sorgulanıyor...');
+	var cached = ieuCsReadCache();
+	if (cached && !document.getElementById('ieu-subscription-card')) ieuCsRender(cached, true);
 
 	$.ajax({
 		url: config.relative_path + '/api/ieu-subscription-status',
 		method: 'GET',
 		headers: { 'x-csrf-token': config.csrf_token },
 	}).done(function (result) {
-		console.log('[ieu-cancel-sub] API yanıtı:', JSON.stringify(result));
-
-		if (!result || result.status.code !== 'ok') {
-			console.log('[ieu-cancel-sub] API hatası, kart gösterilmiyor');
-			return;
-		}
-
+		if (!result || !result.status || result.status.code !== 'ok') return;
 		var data = result.response;
-		if (!data || !data.active) {
-			console.log('[ieu-cancel-sub] Aktif abonelik yok');
-			return;
-		}
-
-		var html = buildCardHTML(data);
-		injectCard(html);
-		bindCancelButton(data);
+		ieuCsWriteCache(data);
+		if (!data || !data.active) { ieuCsRemove(); return; }
+		ieuCsRender(data, false);
 	}).fail(function (err) {
-		console.error('[ieu-cancel-sub] API isteği başarısız:', err.statusText);
+		console.error('[ieu-cancel-sub] status request failed:', err.statusText);
 	});
 });
 
@@ -92,42 +117,20 @@ function buildCardHTML(data) {
 }
 
 function injectCard(html) {
-	// 1. Widget alanı varsa oraya ekle (en iyi konum)
-	var target = document.querySelector('[data-widget-area="profile-aboutme-before"]');
-	if (target) {
-		$(target).prepend(html);
-		console.log('[ieu-cancel-sub] Kart profile-aboutme-before alanına eklendi');
+	var box = document.querySelector('.account-content');
+	var about = document.querySelector('[component="aboutme"]');
+	if (box && about && about.parentElement === box) {
+		$(about).after(html);
+		box.classList.add('ieu-cs-has-card');
 		return;
 	}
-
-	// 2. Aboutme bölümünden önce ekle
-	var aboutme = document.querySelector('[component="aboutme"]') ||
-		document.querySelector('.aboutme');
-	if (aboutme) {
-		$(aboutme).before(html);
-		console.log('[ieu-cancel-sub] Kart aboutme bölümünden önce eklendi');
+	if (box) {
+		$(box).append(html);
+		box.classList.add('ieu-cs-has-card');
 		return;
 	}
-
-	// 3. Profil istatistik kartlarından sonra ekle
 	var profile = document.querySelector('[component="account/profile"]');
-	if (profile) {
-		var statRow = profile.querySelector('.d-flex.gap-2.flex-wrap') ||
-			profile.querySelector('.stats');
-		if (statRow) {
-			$(statRow).after(html);
-			console.log('[ieu-cancel-sub] Kart stat satırından sonra eklendi');
-			return;
-		}
-		// Profil içerik alanının sonuna ekle (üste binmesin diye append)
-		$(profile).append(html);
-		console.log('[ieu-cancel-sub] Kart profil alanının sonuna eklendi');
-		return;
-	}
-
-	// 4. Son çare
-	$('#content').append(html);
-	console.log('[ieu-cancel-sub] Kart #content alanına eklendi');
+	$(profile || '#content').append(html);
 }
 
 function bindCancelButton(data) {
