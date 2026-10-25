@@ -44,6 +44,8 @@ $(window).on('action:ajaxify.end', function () {
 	if (!url || !url.startsWith('/user/')) return;
 	if (!config.loggedIn || !config.uid) return;
 	if (!ajaxify.data.isSelf) return;
+	// only on the profile's About page, not on the Topics/Posts/Groups... tabs that share the /user/ layout
+	if (!ajaxify.data.template || !ajaxify.data.template['account/profile']) return;
 	if (!document.querySelector('[component="aboutme"], [component="account/profile"], .account-content')) return;
 
 	var cached = ieuCsReadCache();
