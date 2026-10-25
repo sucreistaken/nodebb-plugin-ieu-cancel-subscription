@@ -100,8 +100,9 @@ function buildCardHTML(data) {
 	h += '<span>Kalan<b class="' + (daysRemaining <= 3 ? 'ieu-cs-text-danger-soft' : '') + '">' + daysRemaining + ' gün</b></span></div>';
 	h += '</div>';
 
-	h += '<div class="ieu-cs-actions"><a href="' + payUrl + '">Planımı yönet</a>';
-	if (up) h += '<a class="' + up[0] + '" href="' + up[2] + '">' + up[1] + '</a>';
+	// target=_top: /pay/* is the payment app, not a NodeBB route, so ajaxify must not open it (it shows 404)
+	h += '<div class="ieu-cs-actions"><a target="_top" href="' + payUrl + '">Planımı yönet</a>';
+	if (up) h += '<a target="_top" class="' + up[0] + '" href="' + up[2] + '">' + up[1] + '</a>';
 	h += '</div>';
 
 	if (daysRemaining <= 3 && !cancelRequested) {
