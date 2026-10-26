@@ -307,9 +307,8 @@ function ieuMatModal(title, html, buttons) {
 $(window).on('action:composer.topics.post', function (ev, payload) {
 	var topic = payload && payload.data;
 	if (!topic || IEU_MAT_CIDS.indexOf(parseInt(topic.cid, 10)) < 0) return;
-	ieuMatModal('🎉 Materyalin alındı!',
-		'<p>En geç <b>3 saat</b> içinde incelenip uygunsa <b>Lite / Premium</b> hesabına tanımlanacak.</p>' +
-		'<p>Ücretli üyeliğin varsa ödülün, üyeliğin bitince başlar. Sonucu bildirim ve e-postayla göndereceğiz.</p>',
+	ieuMatModal('🎉 Materyalin alındı',
+		'<p>3 saat içinde incelenir, sonucu bildirim olarak gelir.</p>',
 		'<a class="ieu-cs-btn ieu-cs-btn-outline ieu-cs-modal-dismiss" href="' + config.relative_path + '/material-info">Kurallar</a>');
 });
 
@@ -322,8 +321,8 @@ function ieuMatCheck() {
 		.then(function (d) {
 			var p = d && d.response && d.response.popups && d.response.popups[d.response.popups.length - 1];
 			if (!p) return;
-			var links = (p.topic ? '<a class="ieu-cs-btn ieu-cs-btn-outline ieu-cs-modal-dismiss" href="' + config.relative_path + escapeHtml(p.topic) + '">Konuya git</a>' : '') +
-				(p.guide ? '<a class="ieu-cs-btn ieu-cs-btn-outline ieu-cs-modal-dismiss" href="' + config.relative_path + escapeHtml(p.guide) + '">Rehberi aç</a>' : '');
+			var links = (p.topic ? '<a class="ieu-cs-btn ieu-cs-btn-outline ieu-cs-modal-dismiss" href="' + config.relative_path + escapeHtml(p.topic) + '">' + escapeHtml(p.topicLabel || 'Konuya git') + '</a>' : '') +
+				(p.guide ? '<a class="ieu-cs-btn ieu-cs-btn-outline ieu-cs-modal-dismiss" href="' + config.relative_path + escapeHtml(p.guide) + '">Kurallar</a>' : '');
 			ieuMatModal(escapeHtml(p.title || 'Materyal'), '<p>' + escapeHtml(p.text) + '</p>', links);
 		})
 		.catch(function () { /* try again on the next page */ })

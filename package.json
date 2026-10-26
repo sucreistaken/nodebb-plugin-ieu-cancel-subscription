@@ -1,6 +1,6 @@
 {
   "name": "nodebb-plugin-ieu-cancel-subscription",
-  "version": "1.0.20",
+  "version": "1.0.21",
   "description": "Displays subscription status card on user profile and allows one-click auto-renewal cancellation via server-to-server payment service integration",
   "main": "library.js",
   "nbbpm": {

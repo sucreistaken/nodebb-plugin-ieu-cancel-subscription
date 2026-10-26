@@ -118,7 +118,7 @@ function cleanPopup(p) {
 	if (!p || typeof p !== 'object') return null;
 	const str = (v, n) => (typeof v === 'string' ? v.slice(0, n) : '');
 	const link = v => (typeof v === 'string' && /^\/(?!\/)[\w\-./#?=&%]*$/.test(v) ? v : null);
-	return { kind: str(p.kind, 20), title: str(p.title, 120), text: str(p.text, 600), topic: link(p.topic), guide: link(p.guide) };
+	return { kind: str(p.kind, 20), title: str(p.title, 120), text: str(p.text, 600), topic: link(p.topic), topicLabel: str(p.topicLabel, 40), guide: link(p.guide) };
 }
 
 plugin.addApiRoutes = async function ({ router, middleware, helpers }) {
