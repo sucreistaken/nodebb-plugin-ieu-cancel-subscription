@@ -286,3 +286,58 @@ function escapeHtml(str) {
 	if (!str) return '';
 	return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
+
+// ─── Material reward popups ──────────────────────────────────────────
+// 1) Right after a new topic in Ders Notları (5) / Soru Tipleri (10): what happens next.
+// 2) A refusal sent by the payment service: shown once, on the next page or as soon as the bell rings.
+var IEU_MAT_CIDS = [5, 10];
+
+function ieuMatModal(title, html, buttons) {
+	var modal = '';
+	modal += '<div class="ieu-cs-modal" id="ieu-modal" tabindex="-1" role="dialog">';
+	modal += '<div class="ieu-cs-modal-dialog ieu-cs-modal-dialog-sm"><div class="ieu-cs-modal-content">';
+	modal += '<div class="ieu-cs-modal-header"><h5 class="ieu-cs-modal-title">' + title + '</h5>';
+	modal += '<button type="button" class="ieu-cs-btn-close ieu-cs-modal-dismiss" aria-label="Kapat"></button></div>';
+	modal += '<div class="ieu-cs-modal-body">' + html + '</div>';
+	modal += '<div class="ieu-cs-modal-footer">' + (buttons || '') + '<button type="button" class="ieu-cs-btn ieu-cs-btn-primary ieu-cs-modal-dismiss">Tamam</button></div>';
+	modal += '</div></div></div>';
+	openIeuCsModal(modal, null);
+}
+
+$(window).on('action:composer.topics.post', function (ev, payload) {
+	var topic = payload && payload.data;
+	if (!topic || IEU_MAT_CIDS.indexOf(parseInt(topic.cid, 10)) < 0) return;
+	ieuMatModal('🎉 Materyalin alındı!',
+		'<p>En geç <b>3 saat</b> içinde incelenip uygunsa <b>Lite / Premium</b> hesabına tanımlanacak.</p>' +
+		'<p>Ücretli üyeliğin varsa ödülün, üyeliğin bitince başlar. Sonucu bildirim ve e-postayla göndereceğiz.</p>',
+		'<a class="ieu-cs-btn ieu-cs-btn-outline ieu-cs-modal-dismiss" href="' + config.relative_path + '/material-info">Kurallar</a>');
+});
+
+var ieuMatBusy = false;
+function ieuMatCheck() {
+	if (!config.loggedIn || ieuMatBusy || document.getElementById('ieu-modal')) return;
+	ieuMatBusy = true;
+	fetch(config.relative_path + '/api/v3/plugins/ieu-material/popup', { credentials: 'same-origin' })
+		.then(function (r) { return r.ok ? r.json() : null; })
+		.then(function (d) {
+			var p = d && d.response && d.response.popups && d.response.popups[d.response.popups.length - 1];
+			if (!p) return;
+			var links = (p.topic ? '<a class="ieu-cs-btn ieu-cs-btn-outline ieu-cs-modal-dismiss" href="' + config.relative_path + escapeHtml(p.topic) + '">Konuya git</a>' : '') +
+				(p.guide ? '<a class="ieu-cs-btn ieu-cs-btn-outline ieu-cs-modal-dismiss" href="' + config.relative_path + escapeHtml(p.guide) + '">Rehberi aç</a>' : '');
+			ieuMatModal(escapeHtml(p.title || 'Materyal'), '<p>' + escapeHtml(p.text) + '</p>', links);
+		})
+		.catch(function () { /* try again on the next page */ })
+		.then(function () { ieuMatBusy = false; });
+}
+
+var ieuMatStarted = false;
+$(window).on('action:ajaxify.end', function () {
+	if (ieuMatStarted) return;
+	ieuMatStarted = true;
+	ieuMatCheck();
+	if (window.socket && socket.on) {
+		socket.on('event:new_notification', function (n) {
+			if (n && /^ieu-material:refused:/.test(String(n.nid || ''))) ieuMatCheck();
+		});
+	}
+});

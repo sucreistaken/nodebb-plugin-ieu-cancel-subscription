@@ -107,6 +107,53 @@ plugin.init = async function (params) {
 	console.log('[ieu-cancel-sub] Routes OK');
 };
 
+// ─── Material reward notices (called by the payment service) ─────────
+// POST /api/v3/plugins/ieu-material/notify  {uid, nid, text, path, popup?}  admin token only:
+// a forum notification (bell, no sender) and, for refusals, a popup shown once on the next page.
+// GET  /api/v3/plugins/ieu-material/popup   the signed-in user's waiting popups (read once).
+const POPUP_KEY = uid => `ieu-material:popup:${uid}`;
+const NID_RE = /^ieu-material:[\w:.-]{1,120}$/;
+
+function cleanPopup(p) {
+	if (!p || typeof p !== 'object') return null;
+	const str = (v, n) => (typeof v === 'string' ? v.slice(0, n) : '');
+	const link = v => (typeof v === 'string' && /^\/(?!\/)[\w\-./#?=&%]*$/.test(v) ? v : null);
+	return { kind: str(p.kind, 20), title: str(p.title, 120), text: str(p.text, 600), topic: link(p.topic), guide: link(p.guide) };
+}
+
+plugin.addApiRoutes = async function ({ router, middleware, helpers }) {
+	const routeHelpers = require.main.require('./src/routes/helpers');
+	const db = require.main.require('./src/database');
+	const user = require.main.require('./src/user');
+	const notifications = require.main.require('./src/notifications');
+	const validator = require.main.require('validator');
+
+	routeHelpers.setupApiRoute(router, 'post', '/ieu-material/notify', [middleware.ensureLoggedIn], async (req, res) => {
+		if (!(await user.isAdministrator(req.uid))) return helpers.formatApiResponse(403, res);
+		const uid = parseInt(req.body.uid, 10);
+		const text = typeof req.body.text === 'string' ? req.body.text.trim().slice(0, 500) : '';
+		const nid = String(req.body.nid || '');
+		const path = typeof req.body.path === 'string' && /^\/(?!\/)/.test(req.body.path) ? req.body.path : '/material-info';
+		if (!uid || uid < 1 || !text || !NID_RE.test(nid) || !(await user.exists(uid))) return helpers.formatApiResponse(400, res);
+		const notif = await notifications.create({ type: 'ieu-material', bodyShort: validator.escape(text), nid, path });
+		if (notif) await notifications.push(notif, [uid]);
+		const popup = cleanPopup(req.body.popup);
+		if (popup && popup.text) {
+			await db.listAppend(POPUP_KEY(uid), JSON.stringify(popup));
+			await db.listTrim(POPUP_KEY(uid), -5, -1);
+		}
+		helpers.formatApiResponse(200, res, { ok: true });
+	});
+
+	routeHelpers.setupApiRoute(router, 'get', '/ieu-material/popup', [middleware.ensureLoggedIn], async (req, res) => {
+		const key = POPUP_KEY(req.uid);
+		const raw = await db.getListRange(key, 0, -1);
+		if (raw && raw.length) await db.delete(key);
+		const popups = (raw || []).map((r) => { try { return cleanPopup(JSON.parse(r)); } catch (e) { return null; } }).filter(Boolean);
+		helpers.formatApiResponse(200, res, { popups });
+	});
+};
+
 // ─── Widget: Register ───────────────────────────────────────────────
 plugin.defineWidgets = async function (widgets) {
 	console.log('[ieu-cancel-sub] defineWidgets called');
