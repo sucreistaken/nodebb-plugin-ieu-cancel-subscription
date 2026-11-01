@@ -295,8 +295,11 @@
 @media (max-width: 900px) { .ieu-cs-v4 { float: none; margin: 0 0 16px; width: 100%; max-width: 420px; } }
 @media (prefers-reduced-motion: reduce) { .ieu-cs-idcard::after { animation: none; } }
 
-/* 1.0.17: card in the empty space right of the bio on desktop, drawn without a layout jump */
-@media (min-width: 992px) {
+/* 1.0.17: card in the empty space right of the bio on desktop, drawn without a layout jump.
+   1.0.22: side by side only from 1260px (below that the bio column collapsed and the card ran over the stats column),
+   and a right gutter so the card no longer touches the stats column. */
+@media (min-width: 768px) { .account-content.ieu-cs-has-card { padding-right: 24px; } }
+@media (min-width: 1260px) {
 	.account-content.ieu-cs-has-card { display: grid; grid-template-columns: minmax(0, 1fr) 330px; column-gap: 24px; align-items: start; }
 	.account-content.ieu-cs-has-card > * { grid-column: 1; }
 	.account-content.ieu-cs-has-card > [data-widget-area="profile-aboutme-before"] { grid-row: 1; }
@@ -305,7 +308,7 @@
 	.account-content.ieu-cs-has-card > #ieu-subscription-card { grid-column: 2; grid-row: 1 / span 3; float: none; width: auto; margin: 0; }
 	.account-content.ieu-cs-has-card > .account-stats { grid-column: 1 / -1; grid-row: 4; }
 }
-@media (max-width: 991px) { .ieu-cs-v4 { float: none; margin: 12px 0 16px; width: 100%; max-width: 420px; } }
+@media (max-width: 1259px) { .ieu-cs-v4 { float: none; margin: 12px 0 16px; width: 100%; max-width: 420px; } }
 .ieu-cs-v4 { animation: ieuCsIn .35s ease both; }
 .ieu-cs-v4.ieu-cs-still { animation: none; }
 @keyframes ieuCsIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
